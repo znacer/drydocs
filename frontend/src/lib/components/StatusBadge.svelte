@@ -3,9 +3,9 @@
 </script>
 
 {#if status === 'valid'}
-	<div class="badge badge-primary">✅ Valid</div>
+	<span class="badge badge-primary">✅ Valid</span>
 {:else if status === 'repealed'}
-	<div class="badge badge-error">❌ Repealed</div>
+	<span class="badge badge-error">❌ Repealed</span>
 {:else}
-	<div class="badge badge-secondary">📝 Draft</div>
+	<span class="badge badge-secondary">📝 Draft</span>
 {/if}

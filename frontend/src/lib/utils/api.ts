@@ -1,7 +1,30 @@
+import type { Document, Version } from '$lib/types/document';
+
+export interface UploadResponse {
+	document: Document;
+	latest_version: Version | null;
+}
+
+export interface DocumentListResponse {
+	documents: Document[];
+	count: number;
+}
+
+export interface DocumentWithVersion {
+	document: Document;
+	latest_version: Version | null;
+}
+
+interface ValidationResult {
+	valid: boolean;
+	errors?: string[];
+	message?: string;
+}
+
 const BASE_URL = 'http://127.0.0.1:8000';
 
 // Helper to handle responses
-async function handleResponse(response) {
+async function handleResponse<T>(response: Response): Promise<T> {
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
 		throw new Error(error.detail || 'Request failed');
@@ -10,42 +33,57 @@ async function handleResponse(response) {
 }
 
 // Upload a document
-export async function uploadDocument(file, title, author) {
+export async function uploadDocument(
+	file: File,
+	title: string,
+	author: string,
+	description: string = ''
+): Promise<UploadResponse> {
 	const formData = new FormData();
 	formData.append('file', file);
 	formData.append('title', title);
 	formData.append('author', author);
+	if (description) {
+		formData.append('description', description);
+	}
 
 	const response = await fetch(`${BASE_URL}/upload`, {
 		method: 'POST',
 		body: formData
 	});
-	return handleResponse(response);
+	return handleResponse<UploadResponse>(response);
 }
 
 // Fetch all documents
-export async function getDocuments() {
+export async function getDocuments(): Promise<DocumentListResponse> {
 	const response = await fetch(`${BASE_URL}/documents`);
-	return handleResponse(response);
+	return handleResponse<DocumentListResponse>(response);
 }
 
 // Fetch a single document
-export async function getDocument(id) {
+export async function getDocument(id: string): Promise<DocumentWithVersion> {
 	const response = await fetch(`${BASE_URL}/documents/${id}`);
-	return handleResponse(response);
+	return handleResponse<DocumentWithVersion>(response);
 }
 
 // Validate a document version
-export async function validateDocument(id) {
+export async function validateDocument(id: string): Promise<ValidationResult> {
 	const response = await fetch(`${BASE_URL}/documents/${id}/validate`, {
 		method: 'POST'
 	});
-	return handleResponse(response);
+	return handleResponse<ValidationResult>(response);
 }
 
 // Download Markdown
-export async function downloadMarkdown(id) {
+export async function downloadMarkdown(id: string): Promise<Blob> {
 	const response = await fetch(`${BASE_URL}/documents/${id}/markdown`);
 	if (!response.ok) throw new Error('Failed to download');
-	return response.blob(); // For <a download> or object URL
+	return response.blob();
+}
+
+// Download original document file
+export async function downloadDocument(id: string): Promise<Blob> {
+	const response = await fetch(`${BASE_URL}/documents/${id}/download`);
+	if (!response.ok) throw new Error('Failed to download');
+	return response.blob();
 }
