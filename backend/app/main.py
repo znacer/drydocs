@@ -348,3 +348,57 @@ async def download_markdown(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to download Markdown",
         )
+
+
+@app.get(
+    "/documents/{document_id}/download",
+    responses={
+        404: {"model": ErrorResponse, "description": "Document or file not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
+async def download_document(
+    document_id: str,
+    db: DbSession,
+) -> StreamingResponse:
+    """
+    Download the original document file of the latest version.
+    """
+    try:
+        # Get document to find latest version storage path
+        doc_with_version = await get_document(db, document_id)
+        if doc_with_version is None or doc_with_version.latest_version is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_id} not found or has no versions",
+            )
+
+        storage_path = doc_with_version.latest_version.storage_path
+        if storage_path is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document file not available",
+            )
+
+        # Download from MinIO
+        file_content = await download_file(
+            bucket=settings.minio_bucket,
+            object_name=storage_path,
+        )
+
+        filename = doc_with_version.latest_version.filename
+        logger.debug(f"Downloaded document file for document: {document_id}")
+
+        # Return as streaming response with original filename
+        return StreamingResponse(
+            iter([file_content]),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    except Exception as e:
+        logger.error(f"Document download error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to download document",
+        )
