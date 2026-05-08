@@ -128,13 +128,13 @@ The application will be available at: http://localhost:3000
 
 ```mermaid
 flowchart TB
-    Layout[+layout.svelte] --> Navbar
+    Layout["+layout.svelte"] --> Navbar
     Layout --> Main
     
-    Main --> Home[+page.svelte\nHome]
-    Main --> DocsList[documents/+page.svelte\nDocument List]
-    Main --> DocDetail[documents/[id]/+page.svelte\nDocument Detail]
-    Main --> Login[login/+page.svelte\nLogin]
+    Main --> Home["+page.svelte\nHome"]
+    Main --> DocsList["documents/+page.svelte\nDocument List"]
+    Main --> DocDetail["documents/[id]/+page.svelte\nDocument Detail"]
+    Main --> Login["login/+page.svelte\nLogin"]
     
     DocsList --> DocumentCard
     DocsList --> UploadModal
