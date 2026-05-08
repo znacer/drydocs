@@ -17,6 +17,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio.base import AsyncGenerator
 
 from app.config import settings
 from app.crud import (
@@ -70,7 +71,7 @@ app.add_middleware(
 
 
 # Database session dependency
-async def get_db_session() -> AsyncSession:
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session."""
     async with AsyncSessionLocal() as session:
         try:
@@ -114,6 +115,7 @@ async def upload_document(
     """
     try:
         # Validate file type
+        assert file.filename is not None
         file_ext = os.path.splitext(file.filename)[1].lower()
         if file_ext not in (".pdf", ".docx", ".doc"):
             raise HTTPException(
