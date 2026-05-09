@@ -158,11 +158,28 @@ def setup_test_env() -> None:
 
 # HTTP client for API tests
 @pytest.fixture
-def client():
+def client(monkeypatch):
     """Create HTTP client for testing FastAPI endpoints.
 
     All database and storage operations are mocked at the module level.
     """
+    # Patch init_db and ensure_bucket in the modules where they're imported
+    import app.database as db_module
+    import app.main as main_module
+    import app.storage as storage_module
+
+    async def mock_init_db():
+        pass
+
+    async def mock_ensure_bucket():
+        pass
+
+    # Patch in app.database
+    monkeypatch.setattr(db_module, "init_db", mock_init_db)
+    # Patch in app.main (where lifespan imports from)
+    monkeypatch.setattr(main_module, "init_db", mock_init_db)
+    monkeypatch.setattr(storage_module, "ensure_bucket", mock_ensure_bucket)
+
     with TestClient(app) as client:
         yield client
 
