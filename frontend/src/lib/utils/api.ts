@@ -27,7 +27,7 @@ interface ValidationResult {
 	message?: string;
 }
 
-const BASE_URL = 'http://127.0.0.1:8000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 // Helper to handle responses
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -53,7 +53,7 @@ export async function uploadDocument(
 		formData.append('description', description);
 	}
 
-	const response = await fetch(`${BASE_URL}/upload`, {
+	const response = await fetch(`${BASE_URL}/documents/upload`, {
 		method: 'POST',
 		body: formData
 	});

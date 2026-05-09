@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
@@ -22,6 +22,6 @@
 
 <div style="display:none">
 	{#each locales as locale (locale)}
-		<a href={resolve(localizeHref($page.url.pathname, { locale }) as any)}>{locale}</a>
+		<a href={resolve(localizeHref(page.url.pathname, { locale }) as any)}>{locale}</a>
 	{/each}
 </div>

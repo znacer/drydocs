@@ -2,6 +2,7 @@
 	import { Search, X } from '@lucide/svelte';
 	import type { SearchRequest, SearchResponse } from '$lib/types/search';
 	import { searchDocuments } from '$lib/utils/api';
+	import { m } from '$lib/paraglide/messages';
 
 	let { onSearch }: { onSearch: (results: SearchResponse, query: string) => void } = $props();
 	let searchQuery = $state('');
@@ -83,7 +84,7 @@
 				type="search"
 				bind:value={searchQuery}
 				oninput={handleInput}
-				placeholder="Search documents..."
+				placeholder="{m.search()}..."
 				class="input w-full border border-base-200 bg-base-200 pr-10 pl-10 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
 			/>
 			{#if searchQuery}

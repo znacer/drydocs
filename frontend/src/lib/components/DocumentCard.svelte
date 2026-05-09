@@ -2,6 +2,7 @@
 	import StatusBadge from './StatusBadge.svelte';
 	import type { Document } from '$lib/types/document';
 	import { deleteDocument } from '$lib/utils/api';
+	import { m } from '$lib/paraglide/messages';
 
 	let {
 		document,
@@ -18,7 +19,7 @@
 	} = $props();
 
 	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString('en-US', {
+		return new Date(dateString).toLocaleDateString(undefined, {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'
@@ -31,7 +32,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+		if (!confirm(m.are_you_sure_delete())) {
 			return;
 		}
 
@@ -42,7 +43,7 @@
 			window.location.reload();
 		} catch (err: unknown) {
 			const errorObj = err as Error;
-			alert(errorObj.message || 'Failed to delete document');
+			alert(errorObj.message || m.delete_failed());
 		} finally {
 			isDeleting = false;
 		}
@@ -59,20 +60,20 @@
 			<h3 class="card-title text-lg">{document.title}</h3>
 			<StatusBadge status={document.status} />
 		</div>
-		<p class="text-sm text-base-content/70">By {document.author}</p>
+		<p class="text-sm text-base-content/70">{m.by_author({ author: document.author })}</p>
 		{#if document.description}
 			<p class="my-2 text-base-content/90">{document.description}</p>
 		{/if}
 		{#if highlight}
 			<div class="mt-2 text-sm text-base-content/80">
-				<span class="font-medium">Preview:</span>
+				<span class="font-medium">{m.preview()}:</span>
 				{highlight}
 			</div>
 		{/if}
 		<div class="mt-4 flex gap-4 text-xs text-base-content/50">
 			<span class="badge badge-ghost">v{document.current_version}</span>
-			<span>Created: {formatDate(document.created_at)}</span>
-			<span>Updated: {formatDate(document.updated_at)}</span>
+			<span>{m.created()}: {formatDate(document.created_at)}</span>
+			<span>{m.updated()}: {formatDate(document.updated_at)}</span>
 			{#if score !== undefined}
 				<span class="flex-1"></span>
 				<span class="font-medium text-primary">{score.toFixed(2)}</span>
@@ -80,9 +81,9 @@
 		</div>
 		{#if showActions}
 			<div class="mt-4 card-actions">
-				<a href="/documents/{document.id}" class="btn btn-sm btn-primary"> View Document </a>
+				<a href="/documents/{document.id}" class="btn btn-sm btn-primary">{m.view_document()}</a>
 				<button onclick={handleDelete} class="btn btn-sm btn-error" disabled={isDeleting}>
-					{isDeleting ? 'Deleting...' : 'Delete'}
+					{isDeleting ? m.deleting() : m.delete()}
 				</button>
 			</div>
 		{/if}

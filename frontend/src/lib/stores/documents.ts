@@ -1,8 +1,8 @@
 import { writable } from 'svelte/store';
-import { getDocuments } from '../utils/api';
-import type { DocumentListResponse } from '../utils/api';
+import { getDocuments } from '$lib/utils/api';
+import type { Document } from '$lib/types';
 
-export const documents = writable<any[]>([]);
+export const documents = writable<Document[]>([]);
 export const isLoading = writable<boolean>(false);
 export const error = writable<string | null>(null);
 

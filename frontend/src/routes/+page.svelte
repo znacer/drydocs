@@ -4,6 +4,7 @@
 	import SearchBar from '$lib/components/SearchBar.svelte';
 	import SearchResults from '$lib/components/SearchResults.svelte';
 	import type { SearchResponse } from '$lib/types/search';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
 	let searchResults = $state<SearchResponse | null>(null);
@@ -26,10 +27,10 @@
 
 <div class="container mx-auto px-4 py-8">
 	<div class="mb-8 flex items-center justify-between">
-		<h1 class="text-3xl font-bold">Documents</h1>
+		<h1 class="text-3xl font-bold">{m.documents()}</h1>
 		<a href="/upload" class="btn btn-primary">
 			<Plus />
-			Upload Document
+			{m.upload_document()}
 		</a>
 	</div>
 
@@ -44,7 +45,7 @@
 	{:else}
 		<!-- Document Grid -->
 		{#if data.documents.documents.length === 0}
-			<p class="py-8 text-center text-base-content/70">No documents found.</p>
+			<p class="py-8 text-center text-base-content/70">{m.no_documents_found()}</p>
 		{:else}
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 				{#each data.documents.documents as document}
