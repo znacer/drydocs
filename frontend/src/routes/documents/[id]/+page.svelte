@@ -7,6 +7,7 @@
 		getLinkedDocuments,
 		deleteDocument
 	} from '$lib/utils/api';
+	import DocumentViewer from '$lib/components/DocumentViewer.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { DocumentWithVersion } from '$lib/utils/api';
 	import type { LinkedDocumentsResponse } from '$lib/types/reference';
@@ -274,6 +275,16 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- Document Content -->
+					{#if docWithVersion.latest_version?.markdown_path}
+						<div class="card mb-6 border border-base-200 bg-base-100 shadow-md">
+							<div class="card-body">
+								<h2 class="mb-4 card-title text-xl">Document Content</h2>
+								<DocumentViewer {documentId} />
+							</div>
+						</div>
+					{/if}
 
 					<!-- References Section -->
 					{#await linkedDocumentsPromise}

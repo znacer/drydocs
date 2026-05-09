@@ -4,7 +4,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import DOMPurify from 'dompurify';
 
-	let { documentId }: { documentId: string } = $props();
+	let { documentId }: { documentId: string | undefined } = $props();
 
 	let markdownContent = $state<string | null>(null);
 	let isLoading = $state<boolean>(true);
@@ -15,6 +15,12 @@
 		if (!documentId) return;
 
 		async function fetchMarkdown() {
+			if (!documentId) {
+				markdownContent = null;
+				isLoading = false;
+				return;
+			}
+
 			isLoading = true;
 			error = null;
 
