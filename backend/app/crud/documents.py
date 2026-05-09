@@ -195,6 +195,8 @@ async def update_search_vector(
     """
     Update the search_vector for a document.
 
+    Uses proper SQLAlchemy expressions to avoid SQL injection risks.
+
     Args:
         db: Async database session
         document_id: Document ID
@@ -204,16 +206,17 @@ async def update_search_vector(
         extracted_text: Extracted text content
     """
     try:
-        # Create tsvector using to_tsvector
+        # Create tsvector using proper SQLAlchemy func.concat_ws for safe string joining
+        # Weight: A (title) > B (author) > C (description) > D (content)
         search_vector_expr = func.to_tsvector(
             "english",
-            func.coalesce(title, "")
-            + " "
-            + func.coalesce(author, "")
-            + " "
-            + func.coalesce(description or "", "")
-            + " "
-            + func.coalesce(extracted_text or "", ""),
+            func.concat_ws(
+                " ",
+                func.coalesce(title, ""),
+                func.coalesce(author, ""),
+                func.coalesce(description, ""),
+                func.coalesce(extracted_text, ""),
+            ),
         )
 
         await db.execute(

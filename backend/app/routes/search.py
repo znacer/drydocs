@@ -1,36 +1,16 @@
 """Search-related API endpoints."""
 
 import logging
-from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status
 
 from app.crud import get_document, search_documents
-from app.database import AsyncSessionLocal
+from app.database import DbSession
 from app.models import ErrorResponse, SearchRequest, SearchResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="", tags=["Search"])
-
-
-# Database session dependency
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-
-
-DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 @router.post(

@@ -75,8 +75,6 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
     Logs HTTP exceptions and returns consistent error responses.
     """
-    from fastapi.responses import JSONResponse
-
     logger.error(f"HTTP Error: {exc.status_code} - {exc.detail}")
     error_type = None
     if hasattr(exc, 'headers') and exc.headers:

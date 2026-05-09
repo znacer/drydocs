@@ -2,8 +2,10 @@
 
 import logging
 from collections.abc import AsyncGenerator
+from typing import Annotated
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
+from fastapi import Depends
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -144,7 +146,11 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get async database session."""
+    """Dependency to get async database session.
+
+    This is the centralized database session dependency that should be used
+    across all route files for consistent session management.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -157,43 +163,17 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+# Type annotation for use with FastAPI Depends
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
 async def init_db() -> None:
-    """Initialize database tables."""
+    """Initialize database tables.
+
+    Creates all tables defined in the SQLAlchemy models.
+    Schema migrations should be handled by Alembic, not in this function.
+    This function only ensures tables exist on first run.
+    """
     async with engine.begin() as conn:
-        # Create all tables
         await conn.run_sync(Base.metadata.create_all)
-
-        # Add search_vector column to existing documents table if it doesn't exist
-        try:
-            await conn.run_sync(
-                lambda sync_conn: sync_conn.execute(
-                    text("""
-                    ALTER TABLE documents
-                    ADD COLUMN IF NOT EXISTS search_vector TSVECTOR
-                    """)
-                )
-            )
-            await conn.run_sync(
-                lambda sync_conn: sync_conn.execute(
-                    text(
-                        "CREATE INDEX IF NOT EXISTS idx_documents_search_vector ON documents USING GIN(search_vector)"
-                    )
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Could not add search_vector column: {e}")
-
-        # Add extracted_text column to versions table for text extraction
-        try:
-            await conn.run_sync(
-                lambda sync_conn: sync_conn.execute(
-                    text("""
-                    ALTER TABLE versions
-                    ADD COLUMN IF NOT EXISTS extracted_text TEXT
-                    """)
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Could not add extracted_text column: {e}")
-
-        logger.info("Database tables created successfully")
+        logger.info("Database tables verified/created successfully")

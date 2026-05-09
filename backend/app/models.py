@@ -5,14 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-# Configuration for all models - serialize UUIDs as strings
-class ModelConfig:
-    """Base configuration for all models."""
-    from_attributes = True
-    json_encoders = {UUID: str}
-
-
 # --- Document Schemas ---
 
 

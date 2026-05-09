@@ -2,20 +2,9 @@
 
 import logging
 import os
-from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.crud import (
@@ -28,7 +17,7 @@ from app.crud import (
     update_search_vector,
     validate_version,
 )
-from app.database import AsyncSessionLocal
+from app.database import DbSession
 from app.models import (
     DocumentCreate,
     DocumentListResponse,
@@ -100,21 +89,7 @@ def validate_file_size(file: UploadFile) -> None:
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
-# Database session dependency
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
 
-
-DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 @router.post(

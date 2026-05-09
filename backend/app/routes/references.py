@@ -1,12 +1,9 @@
 """Document reference-related API endpoints."""
 
 import logging
-from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import (
     extract_and_store_references,
@@ -15,7 +12,7 @@ from app.crud import (
     get_references_by_source,
     get_references_by_target,
 )
-from app.database import AsyncSessionLocal, Version
+from app.database import DbSession, Version
 from app.models import (
     ErrorResponse,
     ExtractReferencesResponse,
@@ -28,21 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["References"])
 
 
-# Database session dependency
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
 
-
-DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 @router.get(
@@ -68,8 +51,6 @@ async def get_document_references_endpoint(
     try:
         result = await get_linked_documents(db, document_id)
         return result
-    except HTTPException:
-        raise
     except HTTPException:
         raise
     except ValueError as e:

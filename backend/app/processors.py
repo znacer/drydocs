@@ -249,30 +249,3 @@ def extract_all_references(text: str) -> list[str]:
         references.add(match.group())
 
     return list(references)
-
-
-def create_search_vector(
-    title: str, author: str, description: str | None, extracted_text: str | None
-) -> str:
-    """
-    Create a PostgreSQL tsvector string for full-text search.
-
-    Args:
-        title: Document title
-        author: Document author
-        description: Document description (optional)
-        extracted_text: Extracted text content (optional)
-
-    Returns:
-        String representation of tsvector for PostgreSQL
-    """
-    # Build the text to be vectorized
-    text_parts = [title, author]
-    if description:
-        text_parts.append(description)
-    if extracted_text:
-        text_parts.append(extracted_text)
-
-    # Create tsvector using to_tsvector function
-    # Weight: A (title) > B (author) > C (description) > D (content)
-    return f"to_tsvector('english', coalesce({repr(title)}, '') || ' ' || coalesce({repr(author)}, '') || ' ' || coalesce({repr(description or '')}, '') || ' ' || coalesce({repr(extracted_text or '')}, ''))"
