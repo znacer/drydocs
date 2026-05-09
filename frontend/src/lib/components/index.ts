@@ -11,3 +11,5 @@ export { default as UploadForm } from './UploadForm.svelte';
 export { default as DocumentViewer } from './DocumentViewer.svelte';
 export { default as UserMenu } from './UserMenu.svelte';
 export { default as AuthButtons } from './AuthButtons.svelte';
+export { default as SearchBar } from './SearchBar.svelte';
+export { default as SearchResults } from './SearchResults.svelte';

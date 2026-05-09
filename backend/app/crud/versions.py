@@ -1,4 +1,4 @@
-"""Database CRUD operations."""
+"""Version CRUD operations."""
 
 import logging
 import uuid
@@ -6,125 +6,11 @@ from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.database import Document, Version
-from app.models import (
-    DocumentCreate,
-    DocumentListResponse,
-    DocumentResponse,
-    DocumentWithLatestVersion,
-    ValidationRequest,
-    VersionResponse,
-)
+from app.models import ValidationRequest, VersionResponse
 
 logger = logging.getLogger(__name__)
-
-
-async def create_document(db: AsyncSession, document_data: DocumentCreate) -> DocumentResponse:
-    """
-    Create a new document in the database.
-
-    Args:
-        db: Async database session
-        document_data: Document data to create
-
-    Returns:
-        Created document as DocumentResponse
-    """
-    try:
-        doc_id = str(uuid.uuid4())
-        db_document = Document(
-            id=doc_id,
-            title=document_data.title,
-            author=document_data.author,
-            description=document_data.description,
-            current_version=1,
-            status="draft",
-        )
-        db.add(db_document)
-        await db.flush()
-        await db.refresh(db_document)
-
-        logger.debug(f"Created document: {doc_id}")
-        return DocumentResponse.model_validate(db_document)
-    except Exception as e:
-        logger.error(f"Error creating document: {e}")
-        raise
-
-
-async def get_document(db: AsyncSession, document_id: str) -> DocumentWithLatestVersion | None:
-    """
-    Get a document with its latest version.
-
-    Args:
-        db: Async database session
-        document_id: Document ID
-
-    Returns:
-        DocumentWithLatestVersion or None if not found
-    """
-    try:
-        result = await db.execute(
-            select(Document)
-            .where(Document.id == document_id)
-            .options(selectinload(Document.versions))
-        )
-        db_document = result.scalar_one_or_none()
-
-        if db_document is None:
-            logger.debug(f"Document not found: {document_id}")
-            return None
-
-        latest_version = None
-        if db_document.versions:
-            latest_version = db_document.versions[0]
-
-        return DocumentWithLatestVersion(
-            document=DocumentResponse.model_validate(db_document),
-            latest_version=VersionResponse.model_validate(latest_version)
-            if latest_version
-            else None,
-        )
-    except Exception as e:
-        logger.error(f"Error fetching document: {e}")
-        raise
-
-
-async def list_documents(
-    db: AsyncSession, skip: int = 0, limit: int = 100
-) -> DocumentListResponse:
-    """
-    List all documents with pagination.
-
-    Args:
-        db: Async database session
-        skip: Number of documents to skip (offset)
-        limit: Maximum number of documents to return
-
-    Returns:
-        DocumentListResponse with list of documents and count
-    """
-    try:
-        # Get count
-        count_result = await db.execute(select(func.count()).select_from(Document))
-        total_count = count_result.scalar_one()
-
-        # Get documents
-        result = await db.execute(
-            select(Document)
-            .offset(skip)
-            .limit(limit)
-            .order_by(Document.created_at.desc())
-        )
-        db_documents = result.scalars().all()
-
-        documents = [DocumentResponse.model_validate(doc) for doc in db_documents]
-
-        return DocumentListResponse(documents=documents, count=total_count)
-    except Exception as e:
-        logger.error(f"Error listing documents: {e}")
-        raise
 
 
 async def create_version(
@@ -184,6 +70,28 @@ async def create_version(
         raise
 
 
+async def get_version(db: AsyncSession, version_id: str) -> VersionResponse | None:
+    """
+    Get a specific version by ID.
+
+    Args:
+        db: Async database session
+        version_id: Version ID
+
+    Returns:
+        VersionResponse or None if not found
+    """
+    try:
+        result = await db.execute(select(Version).where(Version.id == version_id))
+        db_version = result.scalar_one_or_none()
+        if db_version is None:
+            return None
+        return VersionResponse.model_validate(db_version)
+    except Exception as e:
+        logger.error(f"Error fetching version: {e}")
+        raise
+
+
 async def validate_version(
     db: AsyncSession,
     version_id: str,
@@ -240,26 +148,4 @@ async def validate_version(
         return VersionResponse.model_validate(db_version)
     except Exception as e:
         logger.error(f"Error validating version: {e}")
-        raise
-
-
-async def get_version(db: AsyncSession, version_id: str) -> VersionResponse | None:
-    """
-    Get a specific version by ID.
-
-    Args:
-        db: Async database session
-        version_id: Version ID
-
-    Returns:
-        VersionResponse or None if not found
-    """
-    try:
-        result = await db.execute(select(Version).where(Version.id == version_id))
-        db_version = result.scalar_one_or_none()
-        if db_version is None:
-            return None
-        return VersionResponse.model_validate(db_version)
-    except Exception as e:
-        logger.error(f"Error fetching version: {e}")
         raise

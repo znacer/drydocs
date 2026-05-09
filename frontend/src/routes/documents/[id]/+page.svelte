@@ -1,12 +1,23 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getDocument, downloadDocument, downloadMarkdown } from '$lib/utils/api';
+	import {
+		getDocument,
+		downloadDocument,
+		downloadMarkdown,
+		getLinkedDocuments,
+		deleteDocument
+	} from '$lib/utils/api';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { DocumentWithVersion } from '$lib/utils/api';
+	import type { LinkedDocumentsResponse } from '$lib/types/reference';
+	import { goto } from '$app/navigation';
 
 	// Get document ID from route params
 	let documentId = $derived($page.params.id);
 	let documentPromise = $derived(documentId ? getDocument(documentId) : Promise.resolve(null));
+	let linkedDocumentsPromise = $derived(
+		documentId ? getLinkedDocuments(documentId) : Promise.resolve(null)
+	);
 
 	async function handleDownloadOriginal(doc: DocumentWithVersion) {
 		if (!doc.latest_version || !documentId) return;
@@ -59,6 +70,34 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	};
+
+	let isDeleting = $state(false);
+	let deleteError = $state<string | null>(null);
+
+	async function handleDelete() {
+		if (!documentId) return;
+
+		try {
+			isDeleting = true;
+			deleteError = null;
+
+			// Confirm deletion
+			if (
+				!confirm('Are you sure you want to delete this document? This action cannot be undone.')
+			) {
+				return;
+			}
+
+			await deleteDocument(documentId);
+			// Redirect to home page after successful deletion
+			goto('/');
+		} catch (err: unknown) {
+			const errorObj = err as Error;
+			deleteError = errorObj.message || 'Failed to delete document';
+		} finally {
+			isDeleting = false;
+		}
+	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -76,15 +115,24 @@
 				<!-- Back link -->
 				<div class="mb-6">
 					<a href="/" class="btn btn-ghost btn-sm">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-							<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+								clip-rule="evenodd"
+							/>
 						</svg>
 						Back to Documents
 					</a>
 				</div>
 
 				<!-- Document header -->
-				<div class="mb-6 card border border-base-200 bg-base-100 shadow-md">
+				<div class="card mb-6 border border-base-200 bg-base-100 shadow-md">
 					<div class="card-body">
 						<div class="flex items-start justify-between">
 							<div>
@@ -93,6 +141,23 @@
 									<p class="text-base-content/70">By {docWithVersion.document.author}</p>
 									<StatusBadge status={docWithVersion.document.status} />
 								</div>
+							</div>
+							<div class="shrink-0">
+								<button onclick={handleDelete} class="btn btn-sm btn-error" disabled={isDeleting}>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										viewBox="0 0 20 20"
+										fill="currentColor"
+									>
+										<path
+											fill-rule="evenodd"
+											d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+									{isDeleting ? 'Deleting...' : 'Delete'}
+								</button>
 							</div>
 						</div>
 
@@ -119,7 +184,7 @@
 
 				<!-- Document file info -->
 				{#if docWithVersion.latest_version}
-					<div class="mb-6 card border border-base-200 bg-base-100 shadow-md">
+					<div class="card mb-6 border border-base-200 bg-base-100 shadow-md">
 						<div class="card-body">
 							<h2 class="mb-4 card-title text-xl">File Information</h2>
 
@@ -134,7 +199,9 @@
 								</div>
 								<div class="flex justify-between">
 									<span class="text-base-content/70">File Size:</span>
-									<span class="font-medium">{formatFileSize(docWithVersion.latest_version.file_size)}</span>
+									<span class="font-medium"
+										>{formatFileSize(docWithVersion.latest_version.file_size)}</span
+									>
 								</div>
 								<div class="flex justify-between">
 									<span class="text-base-content/70">Validation Status:</span>
@@ -149,7 +216,8 @@
 								{#if docWithVersion.latest_version.validation_notes}
 									<div class="flex justify-between">
 										<span class="text-base-content/70">Validation Notes:</span>
-										<span class="font-medium">{docWithVersion.latest_version.validation_notes}</span>
+										<span class="font-medium">{docWithVersion.latest_version.validation_notes}</span
+										>
 									</div>
 								{/if}
 							</div>
@@ -157,34 +225,150 @@
 					</div>
 
 					<!-- Download buttons -->
-					<div class="mb-6 card border border-base-200 bg-base-100 shadow-md">
+					<div class="card mb-6 border border-base-200 bg-base-100 shadow-md">
 						<div class="card-body">
 							<h2 class="mb-4 card-title text-xl">Downloads</h2>
 
 							<div class="flex flex-col gap-4 sm:flex-row">
-								<button onclick={() => handleDownloadOriginal(docWithVersion)} class="btn btn-primary btn-lg flex-1">
-									<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+								<button
+									onclick={() => handleDownloadOriginal(docWithVersion)}
+									class="btn flex-1 btn-lg btn-primary"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mr-2 h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+										/>
 									</svg>
 									Download Original ({docWithVersion.latest_version.file_type})
 								</button>
 
-								<button onclick={() => handleDownloadMarkdown(docWithVersion)} class="btn btn-secondary btn-lg flex-1">
-									<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+								<button
+									onclick={() => handleDownloadMarkdown(docWithVersion)}
+									class="btn flex-1 btn-lg btn-secondary"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mr-2 h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+										/>
 									</svg>
 									Download Markdown
 								</button>
 							</div>
 						</div>
 					</div>
+
+					<!-- References Section -->
+					{#await linkedDocumentsPromise}
+						<!-- Loading references -->
+					{:then linkedDocs}
+						{#if linkedDocs && (linkedDocs.referenced_documents.length > 0 || linkedDocs.referencing_documents.length > 0)}
+							<div class="card mb-6 border border-base-200 bg-base-100 shadow-md">
+								<div class="card-body">
+									<h2 class="mb-4 card-title text-xl">References</h2>
+
+									{#if linkedDocs.referenced_documents.length > 0}
+										<div class="mb-6">
+											<h3 class="mb-3 text-lg font-semibold">
+												Referenced Documents ({linkedDocs.referenced_documents.length})
+											</h3>
+											<div class="space-y-3">
+												{#each linkedDocs.referenced_documents as doc}
+													<a
+														href="/documents/{doc.id}"
+														class="block rounded-lg border border-base-200 p-3 transition-colors hover:border-primary"
+													>
+														<div class="flex items-start justify-between">
+															<div class="flex-1">
+																<h4 class="font-medium">{doc.title}</h4>
+																<p class="text-sm text-base-content/70">By {doc.author}</p>
+															</div>
+															<div class="shrink-0">
+																<StatusBadge status={doc.status} />
+															</div>
+														</div>
+														{#if doc.description}
+															<p class="mt-1 line-clamp-1 text-sm text-base-content/60">
+																{doc.description}
+															</p>
+														{/if}
+													</a>
+												{/each}
+											</div>
+										</div>
+									{/if}
+
+									{#if linkedDocs.referencing_documents.length > 0}
+										<div>
+											<h3 class="mb-3 text-lg font-semibold">
+												Referencing Documents ({linkedDocs.referencing_documents.length})
+											</h3>
+											<p class="mb-3 text-sm text-base-content/60">
+												These documents reference this one:
+											</p>
+											<div class="space-y-3">
+												{#each linkedDocs.referencing_documents as doc}
+													<a
+														href="/documents/{doc.id}"
+														class="block rounded-lg border border-base-200 p-3 transition-colors hover:border-primary"
+													>
+														<div class="flex items-start justify-between">
+															<div class="flex-1">
+																<h4 class="font-medium">{doc.title}</h4>
+																<p class="text-sm text-base-content/70">By {doc.author}</p>
+															</div>
+															<div class="shrink-0">
+																<StatusBadge status={doc.status} />
+															</div>
+														</div>
+														{#if doc.description}
+															<p class="mt-1 line-clamp-1 text-sm text-base-content/60">
+																{doc.description}
+															</p>
+														{/if}
+													</a>
+												{/each}
+											</div>
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					{/await}
 				{/if}
 			</div>
 		{/if}
 	{:catch error}
 		<div class="alert alert-error">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
 			</svg>
 			<span>{error.message || 'Failed to fetch document'}</span>
 		</div>
