@@ -1,8 +1,6 @@
 # DryDocs
 
 > **Document Management System**
->
-> Securely upload, store, version, and convert PDF and Word documents to Markdown.
 
 ---
 
@@ -110,14 +108,21 @@ flowchart TB
 drydocs/
 ├── backend/                    # FastAPI Backend
 │   ├── app/
+│   │   ├── __init__.py
 │   │   ├── config.py           # Application configuration (pydantic-settings)
-│   │   ├── database.py         # SQLAlchemy async models & session
-│   │   ├── models.py           # Pydantic schemas
-│   │   ├── crud.py             # Database CRUD operations
+│   │   ├── database.py         # SQLAlchemy async models & session management
+│   │   ├── models.py           # Pydantic request/response schemas
+│   │   ├── auth.py             # JWT authentication middleware
+│   │   ├── exceptions.py       # Custom exception hierarchy
+│   │   ├── processors.py       # Document processing (text extraction, MD conversion)
 │   │   ├── storage.py          # MinIO client & file operations
-│   │   ├── processors.py       # Document conversion logic
-│   │   └── main.py             # FastAPI routes & app entry
-│   ├── pyproject.toml          # Python dependencies
+│   │   ├── transactions.py     # DB transaction utilities (retry, batch)
+│   │   ├── crud/               # Data access layer
+│   │   └── routes/             # API endpoints
+│   ├── alembic/               # Database migration scripts
+│   ├── tests/                 # Pytest tests
+│   ├── .env.example            # Environment variables template
+│   ├── pyproject.toml          # Python dependencies & tooling config
 │   ├── Dockerfile
 │   └── README.md
 │
@@ -133,7 +138,6 @@ drydocs/
 │   └── README.md
 │
 ├── docker-compose.yaml         # Infrastructure services
-├── AGENTS.md                   # AI agent guidelines
 └── README.md                   # This file
 ```
 
@@ -194,8 +198,11 @@ curl -X POST http://localhost:8000/upload \
 | `uv pip install -e ".[dev]"` | Install dependencies |
 | `uv run uvicorn app.main:app --reload` | Run dev server |
 | `ruff check app/` | Lint code |
-| `mypy app/` | Type check |
+| `ruff format app/` | Format code |
+| `ty check` | Type check |
 | `pytest` | Run tests |
+| `alembic revision --autogenerate -m "message"` | Create new migration |
+| `alembic upgrade head` | Apply all migrations |
 
 ### Frontend Commands
 
@@ -214,19 +221,30 @@ curl -X POST http://localhost:8000/upload \
 #### Backend (`.env` in `/backend`)
 
 ```bash
-# Database
-SQLALCHEMY_DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/docmanager
+# PostgreSQL Database
+postgres_host=localhost
+postgres_port=5432
+postgres_user=postgres
+postgres_password=password
+postgres_db=docmanager
 
-# MinIO
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_SECURE=False
-MINIO_BUCKET=documents
+# MinIO Object Storage
+minio_endpoint=localhost:9000
+minio_access_key=minioadmin
+minio_secret_key=minioadmin
+minio_bucket=documents
+minio_secure=False
 
-# App
-APP_SECRET_KEY=your-secret-key-here
+# Authentication (must match frontend)
+better_auth_secret=change-me-in-production-use-32-characters-minimum
+jwt_algorithm=HS256
+access_token_expire_minutes=30
+
+# CORS
+cors_origins=http://localhost:3000,http://localhost:5173
 ```
+
+> **Note**: The `better_auth_secret` must be at least 16 characters and should match the secret configured in the frontend's `better-auth` setup.
 
 #### Frontend (`.env` in `/frontend`)
 
@@ -294,7 +312,7 @@ docker-compose up -d
 ### Backend (Python)
 
 - **Style**: PEP 8 compliant, enforced by Ruff
-- **Types**: Mandatory type hints, checked with mypy
+- **Types**: Mandatory type hints, checked with `ty`
 - **Async**: Use `async/await` for all I/O operations
 - **Schemas**: Pydantic v2 models in `app/models.py`
 

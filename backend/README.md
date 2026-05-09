@@ -6,6 +6,31 @@
 
 ---
 
+## Key Design Decisions
+
+### Architecture Pattern
+- **Layered Architecture**: Routes → CRUD → Database/Storage
+- **Separation of Concerns**: Each layer has a single responsibility
+- **Dependency Injection**: FastAPI's `Depends` used for database sessions and authentication
+
+### Database
+- **Async SQLAlchemy 2.0**: Full async support with `asyncpg` driver
+- **Centralized Session Management**: Single `get_db()` dependency in `database.py`, imported everywhere
+- **Alembic Migrations**: Schema changes managed via proper migration system (not runtime ALTER TABLE)
+- **Full-Text Search**: PostgreSQL `tsvector`/`tsquery` for efficient document search
+
+### Security
+- **JWT Authentication**: Integration with frontend's `better-auth` library
+- **Type-Safe SQL**: SQLAlchemy ORM expressions to prevent SQL injection
+- **Input Validation**: Pydantic v2 models for all request/response data
+
+### Code Quality
+- **Type Safety**: Mandatory type hints, checked with `ty`
+- **Linting**: `ruff` for PEP 8 compliance and code quality
+- **Testing**: Comprehensive mock-based tests with `pytest-asyncio`
+
+---
+
 ## Overview
 
 The DryDocs backend is a FastAPI application that provides a RESTful API for managing documents. It handles:
@@ -267,18 +292,63 @@ backend/
 │   ├── __init__.py
 │   ├── config.py           # Application settings (pydantic-settings)
 │   ├── database.py         # SQLAlchemy async engine, session, and models
+│   │                          # - Centralized DbSession dependency
+│   │                          # - init_db() for table creation
 │   ├── models.py           # Pydantic request/response schemas
-│   ├── crud.py             # Database CRUD operations
+│   ├── auth.py             # JWT authentication middleware
+│   │                          # - Token creation/decoding
+│   │                          # - Current user dependencies
+│   ├── exceptions.py       # Custom exception hierarchy
+│   │                          # - DryDocsError base class
+│   │                          # - Document, Storage, Processing, Search, Reference errors
+│   ├── processors.py       # Document processing (PDF/DOCX to MD)
+│   │                          # - Text extraction from PDF/DOCX
+│   │                          # - Markdown conversion via Pandoc
+│   │                          # - Reference extraction from text
 │   ├── storage.py          # MinIO client and file storage operations
-│   ├── processors.py       # Document conversion logic (PDF/DOCX to MD)
-│   └── main.py             # FastAPI app, routes, and dependencies
+│   │                          # - Async file upload/download/delete
+│   │                          # - Presigned URL generation
+│   ├── transactions.py     # DB transaction utilities
+│   │                          # - Transaction context managers
+│   │                          # - Retry logic with exponential backoff
+│   │                          # - Batch processing utilities
+│   ├── crud/               # Data access layer (separated by domain)
+│   │   ├── __init__.py
+│   │   ├── documents.py    # Document CRUD operations
+│   │   ├── versions.py     # Version CRUD operations
+│   │   ├── references.py   # Reference CRUD & extraction
+│   │   └── search.py       # Full-text search operations
+│   └── routes/             # API endpoints (FastAPI routers)
+│       ├── __init__.py
+│       ├── documents.py   # /documents/* endpoints
+│       │                    # - POST /upload
+│       │                    # - GET /documents
+│       │                    # - GET /documents/{id}
+│       │                    # - DELETE /documents/{id}
+│       │                    # - POST /documents/{id}/validate
+│       │                    # - GET /documents/{id}/markdown
+│       │                    # - GET /documents/{id}/download
+│       ├── references.py   # /references/* endpoints
+│       │                    # - GET /documents/{id}/references
+│       │                    # - POST /documents/{id}/extract-references
+│       │                    # - GET /documents/{id}/references/outgoing
+│       │                    # - GET /documents/{id}/references/incoming
+│       └── search.py       # /search endpoints
+│            # - POST /search
+│            # - GET /documents/{id}/search
+│
+├── alembic/               # Database migration scripts
+│   ├── env.py              # Alembic environment configuration
+│   ├── script.py.mako      # Migration script template
+│   └── versions/          # Migration history
+│       └── ...             # Individual migration files
 │
 ├── tests/
 │   ├── __init__.py
-│   ├── conftest.py         # Pytest fixtures
-│   ├── test_upload.py      # Upload endpoint tests
-│   ├── test_documents.py   # Document retrieval tests
-│   └── test_validation.py  # Validation endpoint tests
+│   ├── conftest.py         # Pytest fixtures with mocks
+│   ├── test_crud.py        # CRUD operation tests
+│   ├── test_exceptions.py  # Exception hierarchy tests
+│   └── test_routes.py      # API endpoint tests
 │
 ├── pyproject.toml          # Project metadata and dependencies
 ├── Dockerfile              # Container configuration
@@ -288,37 +358,116 @@ backend/
 └── README.md
 ```
 
+### Architecture Layers
+
+```mermaid
+flowchart TB
+    subgraph "API Layer"
+        routes[routes/
+        documents.py
+        references.py
+        search.py]
+    end
+    
+    subgraph "Service Layer"
+        crud[crud/
+        documents.py
+        versions.py
+        references.py
+        search.py]
+        processors[processors.py
+        Text extraction
+        MD conversion
+        Reference parsing]
+        auth[auth.py
+        JWT middleware]
+        transactions[transactions.py
+        DB transactions
+        Retry logic]
+    end
+    
+    subgraph "Data Layer"
+        database[database.py
+        SQLAlchemy Models
+        DbSession dependency]
+        storage[storage.py
+        MinIO Client]
+    end
+    
+    subgraph "External Services"
+        postgres[PostgreSQL
+        Metadata DB]
+        minio[MinIO
+        Object Storage]
+    end
+    
+    %% Dependencies
+    config[config.py
+        Settings]
+    config --> database
+    config --> storage
+    config --> auth
+    
+    database --> postgres
+    storage --> minio
+    
+    routes --> crud
+    routes --> storage
+    routes --> auth
+    routes --> config
+    
+    crud --> database
+    crud --> transactions
+    processors --> storage
+    auth --> config
+    transactions --> database
+```
+
 ---
 
 ## Configuration
 
 ### Settings (app/config.py)
 
-All application settings are managed via `pydantic-settings`:
+All application settings are managed via `pydantic-settings` with type validation:
 
 ```python
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    # Database
-    sqlalchemy_database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/docmanager"
+    # PostgreSQL Configuration
+    postgres_host: str = Field(default="localhost", min_length=1)
+    postgres_port: int = Field(default=5432, ge=1, le=65535)
+    postgres_user: str = Field(default="postgres", min_length=1)
+    postgres_password: str = Field(default="password", min_length=1)
+    postgres_db: str = Field(default="docmanager", min_length=1)
     
-    # MinIO
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin"
+    # MinIO Configuration
+    minio_endpoint: str = Field(default="localhost:9000", min_length=1)
+    minio_access_key: str = Field(default="minioadmin", min_length=1)
+    minio_secret_key: str = Field(default="minioadmin", min_length=1)
+    minio_bucket: str = Field(default="documents", min_length=1)
     minio_secure: bool = False
-    minio_bucket: str = "documents"
     
-    # App
-    app_secret_key: str = "secret"
-    app_debug: bool = False
+    # Authentication (JWT)
+    better_auth_secret: str = Field(default="...", min_length=16)
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    
+    # CORS
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 ```
 
-Settings are automatically loaded from:
-1. Environment variables (prefixed with uppercase class name)
-2. `.env` file in the project directory
-3. Default values defined in the class
+**Configuration Sources** (in priority order):
+1. Environment variables
+2. `.env` file in the backend directory
+3. Default values defined in the `Settings` class
+
+**Derived Properties:**
+- `postgres_url`: Auto-generated async PostgreSQL connection URL
+
+> **Note**: The `better_auth_secret` must match the secret configured in the frontend's `better-auth` setup.
 
 ---
 
@@ -329,30 +478,89 @@ Settings are automatically loaded from:
 | `uv pip install -e ".[dev]"` | Install all dependencies (including dev) |
 | `uv run uvicorn app.main:app --reload` | Run development server |
 | `ruff check app/` | Run linter (PEP 8 compliance) |
+| `ruff check app/ --fix` | Auto-fix linting issues |
 | `ruff format app/` | Format code |
-| `mypy app/` | Run type checker |
+| `ty check` | Run type checker |
 | `pytest` | Run all tests |
-| `pytest --cov=app` | Run tests with coverage |
-| `pytest tests/test_upload.py` | Run specific test file |
+| `pytest --cov=app --cov-report=html` | Run tests with coverage |
+| `alembic revision --autogenerate -m "description"` | Create new migration |
+| `alembic upgrade head` | Apply all pending migrations |
+| `alembic downgrade -1` | Rollback last migration |
 
 ### Testing
 
-The test suite uses `pytest` with `pytest-asyncio` for async test support.
+The test suite uses `pytest` with `pytest-asyncio` for async test support. All database and storage operations are **mocked** in tests, so no external services are required.
 
-**Prerequisites for testing:**
-- Test database (configured via `TEST_SQLALCHEMY_DATABASE_URL`)
-- Test MinIO instance (configured via `TEST_MINIO_*` variables)
+**Test Files:**
+- `tests/test_crud.py` - Tests for CRUD operations (create, read, update, delete)
+- `tests/test_exceptions.py` - Tests for custom exception hierarchy
+- `tests/test_routes.py` - Tests for API endpoints
 
 **Run tests:**
 ```bash
 # Run all tests
 pytest
 
-# Run with coverage
+# Run with coverage report
 pytest --cov=app --cov-report=html
 
+# Run specific test file
+pytest tests/test_crud.py
+
 # Run specific test
-pytest tests/test_upload.py::test_upload_pdf
+pytest tests/test_crud.py::test_create_document -v
+
+# Run with verbose output
+pytest -v
+
+# Run only failed tests from last run
+pytest --lf
+```
+
+> **Note**: Tests use comprehensive mocking (via `unittest.mock`) to avoid requiring real database or MinIO instances. See `tests/conftest.py` for fixture setup.
+
+---
+
+## Database Migrations
+
+The project uses **Alembic** for database schema migrations.
+
+### Migration Workflow
+
+1. **Create a new migration** (after changing models in `database.py`):
+   ```bash
+   alembic revision --autogenerate -m "add_search_vector_to_documents"
+   ```
+
+2. **Review the generated migration** in `alembic/versions/`
+
+3. **Apply migrations** to your database:
+   ```bash
+   alembic upgrade head
+   ```
+
+4. **Rollback** if needed:
+   ```bash
+   alembic downgrade -1  # Rollback one migration
+   alembic downgrade base  # Rollback all migrations
+   ```
+
+### Migration Files
+
+Migrations are stored in `alembic/versions/` with filenames like `1234abc_add_column.py`. Each file contains:
+- `upgrade()`: Applies the schema changes
+- `downgrade()`: Reverts the schema changes
+
+### Alembic Configuration
+
+The `alembic/env.py` is configured to work with the async SQLAlchemy setup. The `target_metadata` is set to `Base.metadata` from `app.database`.
+
+**Common Alembic Commands:**
+```bash
+alembic current              # Show current revision
+alembic history              # Show migration history
+alembic show head             # Show SQL for current head
+alembic merge heads           # Merge multiple heads
 ```
 
 ---
@@ -399,10 +607,44 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 docker run -d \
   --name drydocs-backend \
   -p 8000:8000 \
-  -e SQLALCHEMY_DATABASE_URL=postgresql+asyncpg://postgres:password@host.docker.internal:5432/docmanager \
-  -e MINIO_ENDPOINT=host.docker.internal:9000 \
+  -e postgres_host=host.docker.internal \
+  -e postgres_port=5432 \
+  -e postgres_user=postgres \
+  -e postgres_password=password \
+  -e postgres_db=docmanager \
+  -e minio_endpoint=host.docker.internal:9000 \
+  -e minio_access_key=minioadmin \
+  -e minio_secret_key=minioadmin \
+  -e better_auth_secret=your-strong-secret-here \
   drydocs-backend
 ```
+
+**Docker Compose Alternative:**
+
+For full-stack deployment, add the backend service to your `docker-compose.yaml`:
+
+```yaml
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - minio
+    environment:
+      - postgres_host=postgres
+      - postgres_port=5432
+      - postgres_user=postgres
+      - postgres_password=password
+      - postgres_db=docmanager
+      - minio_endpoint=minio:9000
+      - minio_access_key=minioadmin
+      - minio_secret_key=minioadmin
+      - better_auth_secret=your-strong-secret-here
+```
+
+Then run: `docker-compose up -d backend`
 
 ---
 
@@ -420,8 +662,9 @@ docker run -d \
 | `pydantic-settings` | Settings management | 2.1.0+ |
 | `python-multipart` | Multipart form handling | 0.0.6+ |
 | `minio` | S3-compatible storage | 7.2.0+ |
-| `PyPDF2` | PDF text extraction | 3.0.0+ |
+| `pypdf` | PDF text extraction | 4.0.0+ |
 | `python-docx` | DOCX text extraction | 1.1.0+ |
+| `python-jose[cryptography]` | JWT handling | 3.3.0+ |
 
 ### Development Dependencies
 
@@ -432,22 +675,46 @@ docker run -d \
 | `httpx` | HTTP client for tests | 0.26.0+ |
 | `pytest-cov` | Coverage reporting | 4.1.0+ |
 | `ruff` | Linter & formatter | 0.1.0+ |
-| `mypy` | Type checker | 1.8.0+ |
+| `ty` | Type checker | 0.0.34+ |
+| `alembic` | Database migrations | 1.13.0+ |
 
 ---
 
 ## Environment Variables
 
+### PostgreSQL
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SQLALCHEMY_DATABASE_URL` | PostgreSQL connection URL | `postgresql+asyncpg://postgres:password@localhost:5432/docmanager` |
-| `MINIO_ENDPOINT` | MinIO server endpoint | `localhost:9000` |
-| `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` |
-| `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` |
-| `MINIO_SECURE` | Use HTTPS for MinIO | `False` |
-| `MINIO_BUCKET` | MinIO bucket name | `documents` |
-| `APP_SECRET_KEY` | Application secret key | `secret` |
-| `APP_DEBUG` | Enable debug mode | `False` |
+| `postgres_host` | Database hostname | `localhost` |
+| `postgres_port` | Database port | `5432` |
+| `postgres_user` | Database username | `postgres` |
+| `postgres_password` | Database password | `password` |
+| `postgres_db` | Database name | `docmanager` |
+
+### MinIO
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `minio_endpoint` | MinIO server endpoint | `localhost:9000` |
+| `minio_access_key` | MinIO access key | `minioadmin` |
+| `minio_secret_key` | MinIO secret key | `minioadmin` |
+| `minio_bucket` | Default bucket name | `documents` |
+| `minio_secure` | Use HTTPS | `False` |
+
+### Authentication
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `better_auth_secret` | JWT signing secret | (32+ chars recommended) |
+| `jwt_algorithm` | JWT algorithm | `HS256` |
+| `access_token_expire_minutes` | Token expiration | `30` |
+
+### CORS
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `cors_origins` | Allowed origins (comma-separated) | `http://localhost:3000,http://localhost:5173` |
 
 ---
 
