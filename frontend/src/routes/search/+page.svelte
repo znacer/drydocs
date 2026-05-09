@@ -16,11 +16,13 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<div class="max-w-4xl mx-auto">
+	<div class="mx-auto max-w-4xl">
 		<!-- Header -->
 		<div class="mb-8">
 			<h1 class="text-3xl font-bold">Search Documents</h1>
-			<p class="mt-2 text-base-content/70">Find documents by keywords in title, author, description, or content.</p>
+			<p class="mt-2 text-base-content/70">
+				Find documents by keywords in title, author, description, or content.
+			</p>
 		</div>
 
 		<!-- Search Bar -->

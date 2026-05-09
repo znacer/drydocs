@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data }: { data: PageData } = $props();
 </script>
@@ -17,11 +18,11 @@
 
 					<div class="text-center">
 						<h1 class="text-3xl font-bold">{data.user.name}</h1>
-						<p class="mt-2 text-gray-500">{data.user.email}</p>
+						<p class="mt-2 text-base-content/70">{data.user.email}</p>
 						{#if data.user.emailVerified}
-							<span class="mt-2 badge badge-success">Email Verified</span>
+							<span class="mt-2 badge badge-success">{m.email_verified()}</span>
 						{:else}
-							<span class="mt-2 badge badge-warning">Email Not Verified</span>
+							<span class="mt-2 badge badge-warning">{m.email_not_verified()}</span>
 						{/if}
 					</div>
 
@@ -30,7 +31,7 @@
 					<div class="w-full space-y-4">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">Account Created</div>
+								<div class="stat-title">{m.account_created()}</div>
 								<div class="stat-value">
 									{new Date(data.user.createdAt).toLocaleDateString()}
 								</div>
@@ -38,9 +39,9 @@
 						</div>
 
 						<div class="card-actions justify-end">
-							<a href="/settings" class="btn btn-ghost">Settings</a>
+							<a href="/settings" class="btn btn-ghost">{m.settings()}</a>
 							<form method="post" action="/api/signout">
-								<button type="submit" class="btn btn-error">Sign Out</button>
+								<button type="submit" class="btn btn-error">{m.sign_out()}</button>
 							</form>
 						</div>
 					</div>

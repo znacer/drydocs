@@ -49,6 +49,7 @@
 	},
 	"dependencies": {
 		"@lucide/svelte": "^1.3.0",
-		"daisyui": "^5.5.19"
+		"daisyui": "^5.5.19",
+		"dompurify": "^3.4.2"
 	}
 }

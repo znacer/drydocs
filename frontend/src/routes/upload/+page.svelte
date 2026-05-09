@@ -4,9 +4,9 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<h1 class="text-3xl font-bold mb-8">{m.upload_a_new_document()}</h1>
-	
-	<div class="max-w-2xl mx-auto">
+	<h1 class="mb-8 text-3xl font-bold">{m.upload_a_new_document()}</h1>
+
+	<div class="mx-auto max-w-2xl">
 		<UploadForm />
 	</div>
 </div>

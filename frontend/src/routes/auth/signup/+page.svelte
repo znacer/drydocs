@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
+	import { m } from '$lib/paraglide/messages';
 
 	let { form }: { form: ActionData } = $props();
 </script>
@@ -9,8 +10,8 @@
 	<div class="card w-full max-w-md bg-base-100 shadow-lg">
 		<div class="card-body">
 			<div class="mb-6 text-center">
-				<h1 class="text-3xl font-bold">Create Account</h1>
-				<p class="text-gray-500">Join us and start managing your documents</p>
+				<h1 class="text-3xl font-bold">{m.create_account()}</h1>
+				<p class="text-base-content/70">{m.join_us()}</p>
 			</div>
 
 			{#if form && form.message}
@@ -35,7 +36,7 @@
 			<form method="post" action="?/signUpEmail" use:enhance class="space-y-4">
 				<div class="form-control">
 					<label class="label" for="name">
-						<span class="label-text">Name</span>
+						<span class="label-text">{m.name()}</span>
 					</label>
 					<input
 						id="name"
@@ -49,7 +50,7 @@
 
 				<div class="form-control">
 					<label class="label" for="email">
-						<span class="label-text">Email</span>
+						<span class="label-text">{m.email()}</span>
 					</label>
 					<input
 						id="email"
@@ -63,7 +64,7 @@
 
 				<div class="form-control">
 					<label class="label" for="password">
-						<span class="label-text">Password</span>
+						<span class="label-text">{m.password()}</span>
 					</label>
 					<input
 						id="password"
@@ -76,16 +77,16 @@
 				</div>
 
 				<div class="form-control mt-6">
-					<button type="submit" class="btn w-full btn-primary"> Sign Up </button>
+					<button type="submit" class="btn w-full btn-primary">{m.sign_up()}</button>
 				</div>
 			</form>
 
-			<div class="divider">OR</div>
+			<div class="divider">{m.or()}</div>
 
 			<div class="text-center">
-				<p class="text-sm text-gray-500">
-					Already have an account?
-					<a href="/auth/signin" class="link link-primary">Sign In</a>
+				<p class="text-sm text-base-content/50">
+					{m.already_have_account()}
+					<a href="/auth/signin" class="link link-primary">{m.sign_in()}</a>
 				</p>
 			</div>
 		</div>

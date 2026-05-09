@@ -18,16 +18,16 @@ flowchart TB
         Auth[Auth Service]
         i18n[i18n Service]
     end
-    
+
     subgraph Backend
         FastAPI[FastAPI Backend]
     end
-    
+
     subgraph External
         MinIO[(MinIO Storage)]
         DB[(PostgreSQL)]
     end
-    
+
     UI --> APIClient
     UI --> Auth
     UI --> i18n
@@ -49,18 +49,18 @@ flowchart TB
 
 ### Tech Stack
 
-| Component | Technology | Version |
-|-----------|------------|---------|
-| **Framework** | SvelteKit | Latest |
-| **Svelte** | Svelte 5 (Runes) | Latest |
-| **Language** | TypeScript | Latest |
-| **Styling** | Tailwind CSS | v4 |
-| **UI Library** | daisyUI | Latest |
-| **Package Manager** | Bun | Latest |
-| **Auth** | better-auth | Latest |
-| **ORM** | Drizzle ORM | Latest |
-| **i18n** | Paraglide-js | Latest |
-| **Markdown** | mdsvex | Latest |
+| Component           | Technology       | Version |
+| ------------------- | ---------------- | ------- |
+| **Framework**       | SvelteKit        | Latest  |
+| **Svelte**          | Svelte 5 (Runes) | Latest  |
+| **Language**        | TypeScript       | Latest  |
+| **Styling**         | Tailwind CSS     | v4      |
+| **UI Library**      | daisyUI          | Latest  |
+| **Package Manager** | Bun              | Latest  |
+| **Auth**            | better-auth      | Latest  |
+| **ORM**             | Drizzle ORM      | Latest  |
+| **i18n**            | Paraglide-js     | Latest  |
+| **Markdown**        | mdsvex           | Latest  |
 
 ---
 
@@ -80,6 +80,7 @@ bun install
 ```
 
 Or with npm:
+
 ```bash
 npm install
 ```
@@ -87,11 +88,13 @@ npm install
 ### 2. Configure Environment
 
 Copy the example environment file:
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` with your configuration:
+
 ```bash
 # Backend API URL
 VITE_API_URL=http://localhost:8000
@@ -114,6 +117,7 @@ bun run dev --port 3000
 ```
 
 Or with auto-open:
+
 ```bash
 bun run dev --port 3000 --open
 ```
@@ -130,26 +134,26 @@ The application will be available at: http://localhost:3000
 flowchart TB
     Layout["+layout.svelte"] --> Navbar
     Layout --> Main
-    
+
     Main --> Home["+page.svelte\nHome"]
     Main --> DocsList["documents/+page.svelte\nDocument List"]
     Main --> DocDetail["documents/[id]/+page.svelte\nDocument Detail"]
     Main --> Login["login/+page.svelte\nLogin"]
-    
+
     DocsList --> DocumentCard
     DocsList --> UploadModal
     DocsList --> Pagination
-    
+
     DocDetail --> MarkdownViewer
     DocDetail --> VersionHistory
     DocDetail --> ValidateButton
-    
+
     DocumentCard --> Button
     DocumentCard --> Badge
-    
+
     UploadModal --> Input
     UploadModal --> Button
-    
+
     style Layout fill:#f9f,stroke:#333
     style Home fill:#9f9,stroke:#333
     style DocsList fill:#9f9,stroke:#333
@@ -225,20 +229,20 @@ frontend/
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `bun run dev` | Start development server |
-| `bun run build` | Build for production |
-| `bun run preview` | Preview production build |
-| `bun run check` | Type check with TypeScript |
-| `bun run lint` | Lint code with ESLint |
-| `bun run lint:fix` | Auto-fix lint issues |
-| `bun run format` | Format code with Prettier |
-| `bun run db:push` | Push database schema (Drizzle) |
-| `bun run db:studio` | Open Drizzle Studio |
-| `bun run auth:schema` | Generate auth schema |
-| `bun run i18n:extract` | Extract i18n messages |
-| `bun run i18n:sync` | Sync i18n messages |
+| Command                | Description                    |
+| ---------------------- | ------------------------------ |
+| `bun run dev`          | Start development server       |
+| `bun run build`        | Build for production           |
+| `bun run preview`      | Preview production build       |
+| `bun run check`        | Type check with TypeScript     |
+| `bun run lint`         | Lint code with ESLint          |
+| `bun run lint:fix`     | Auto-fix lint issues           |
+| `bun run format`       | Format code with Prettier      |
+| `bun run db:push`      | Push database schema (Drizzle) |
+| `bun run db:studio`    | Open Drizzle Studio            |
+| `bun run auth:schema`  | Generate auth schema           |
+| `bun run i18n:extract` | Extract i18n messages          |
+| `bun run i18n:sync`    | Sync i18n messages             |
 
 ---
 
@@ -290,18 +294,18 @@ bun run i18n:sync
 
 ### Common Components
 
-| Component | File | Description |
-|-----------|------|-------------|
-| `DocumentCard` | `src/lib/components/DocumentCard.svelte` | Card displaying document info |
-| `DocumentList` | `src/lib/components/DocumentList.svelte` | List of documents with pagination |
-| `UploadModal` | `src/lib/components/UploadModal.svelte` | Modal for uploading documents |
-| `MarkdownViewer` | `src/lib/components/MarkdownViewer.svelte` | Render Markdown content |
-| `VersionHistory` | `src/lib/components/VersionHistory.svelte` | Show version history |
-| `Navbar` | `src/lib/components/Navbar.svelte` | Navigation bar |
-| `Button` | `src/lib/components/Button.svelte` | Styled button |
-| `Input` | `src/lib/components/Input.svelte` | Styled input field |
-| `Modal` | `src/lib/components/Modal.svelte` | Modal dialog |
-| `Table` | `src/lib/components/Table.svelte` | Data table |
+| Component        | File                                       | Description                       |
+| ---------------- | ------------------------------------------ | --------------------------------- |
+| `DocumentCard`   | `src/lib/components/DocumentCard.svelte`   | Card displaying document info     |
+| `DocumentList`   | `src/lib/components/DocumentList.svelte`   | List of documents with pagination |
+| `UploadModal`    | `src/lib/components/UploadModal.svelte`    | Modal for uploading documents     |
+| `MarkdownViewer` | `src/lib/components/MarkdownViewer.svelte` | Render Markdown content           |
+| `VersionHistory` | `src/lib/components/VersionHistory.svelte` | Show version history              |
+| `Navbar`         | `src/lib/components/Navbar.svelte`         | Navigation bar                    |
+| `Button`         | `src/lib/components/Button.svelte`         | Styled button                     |
+| `Input`          | `src/lib/components/Input.svelte`          | Styled input field                |
+| `Modal`          | `src/lib/components/Modal.svelte`          | Modal dialog                      |
+| `Table`          | `src/lib/components/Table.svelte`          | Data table                        |
 
 ---
 
@@ -309,13 +313,13 @@ bun run i18n:sync
 
 ### File-based Routing
 
-| File | Route |
-|------|-------|
-| `src/routes/+page.svelte` | `/` |
-| `src/routes/documents/+page.svelte` | `/documents` |
+| File                                     | Route            |
+| ---------------------------------------- | ---------------- |
+| `src/routes/+page.svelte`                | `/`              |
+| `src/routes/documents/+page.svelte`      | `/documents`     |
 | `src/routes/documents/[id]/+page.svelte` | `/documents/:id` |
-| `src/routes/login/+page.svelte` | `/login` |
-| `src/routes/settings/+page.svelte` | `/settings` |
+| `src/routes/login/+page.svelte`          | `/login`         |
+| `src/routes/settings/+page.svelte`       | `/settings`      |
 
 ### Load Functions
 
@@ -329,13 +333,13 @@ Actions in `+page.server.ts` files handle form submissions. For example, `src/ro
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_API_URL` | Backend API URL | Yes |
-| `DATABASE_URL` | PostgreSQL connection URL (for Drizzle) | No |
-| `AUTH_SECRET` | better-auth secret key | Yes |
-| `AUTH_URL` | Application URL for auth | Yes |
-| `PARAGLIDE_WRITE_KEY` | Paraglide-js write key | No |
+| Variable              | Description                             | Required |
+| --------------------- | --------------------------------------- | -------- |
+| `VITE_API_URL`        | Backend API URL                         | Yes      |
+| `DATABASE_URL`        | PostgreSQL connection URL (for Drizzle) | No       |
+| `AUTH_SECRET`         | better-auth secret key                  | Yes      |
+| `AUTH_URL`            | Application URL for auth                | Yes      |
+| `PARAGLIDE_WRITE_KEY` | Paraglide-js write key                  | No       |
 
 ---
 
@@ -348,11 +352,13 @@ Ensure the backend has CORS configured to allow requests from `http://localhost:
 ### TypeScript Errors
 
 Run type checking:
+
 ```bash
 bun run check
 ```
 
 Common fixes:
+
 - Ensure all props are properly typed
 - Add type annotations for variables
 - Check import paths are correct
@@ -360,11 +366,13 @@ Common fixes:
 ### Linting Errors
 
 Run linting:
+
 ```bash
 bun run lint
 ```
 
 Auto-fix:
+
 ```bash
 bun run lint:fix
 ```
@@ -372,6 +380,7 @@ bun run lint:fix
 ### Build Errors
 
 If build fails:
+
 1. Delete `node_modules` and reinstall: `rm -rf node_modules && bun install`
 2. Clear SvelteKit cache: `rm -rf .svelte-kit`
 3. Try building again: `bun run build`
@@ -379,6 +388,7 @@ If build fails:
 ### API Connection Issues
 
 Verify:
+
 1. Backend is running: `curl http://localhost:8000`
 2. `VITE_API_URL` is correctly set in `.env`
 3. CORS is configured on the backend

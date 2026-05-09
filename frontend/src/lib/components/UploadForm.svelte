@@ -69,7 +69,8 @@
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<div class="form-control">
 				<label class="label" for="title">
-					<span class="label-text">{m.title()} <span class="text-error">*{m.required()}</span></span>
+					<span class="label-text">{m.title()} <span class="text-error">*{m.required()}</span></span
+					>
 				</label>
 				<input
 					type="text"
@@ -83,7 +84,9 @@
 
 			<div class="form-control">
 				<label class="label" for="author">
-					<span class="label-text">{m.author()} <span class="text-error">*{m.required()}</span></span>
+					<span class="label-text"
+						>{m.author()} <span class="text-error">*{m.required()}</span></span
+					>
 				</label>
 				<input
 					type="text"
@@ -97,7 +100,9 @@
 
 			<div class="form-control">
 				<label class="label" for="description">
-					<span class="label-text">{m.description()} <span class="text-base-content/50">({m.optional()})</span></span>
+					<span class="label-text"
+						>{m.description()} <span class="text-base-content/50">({m.optional()})</span></span
+					>
 				</label>
 				<textarea
 					bind:value={description}
@@ -110,7 +115,9 @@
 
 			<div class="form-control">
 				<label class="label" for="file">
-					<span class="label-text">{m.document_file()} <span class="text-error">*{m.required()}</span></span>
+					<span class="label-text"
+						>{m.document_file()} <span class="text-error">*{m.required()}</span></span
+					>
 				</label>
 				<input
 					type="file"

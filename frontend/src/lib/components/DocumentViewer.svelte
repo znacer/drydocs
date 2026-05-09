@@ -2,6 +2,7 @@
 	import { getDocument, downloadMarkdown } from '$lib/utils/api';
 	import type { DocumentWithVersion } from '$lib/utils/api';
 	import { m } from '$lib/paraglide/messages';
+	import DOMPurify from 'dompurify';
 
 	let { documentId }: { documentId: string } = $props();
 
@@ -41,7 +42,7 @@
 
 {#if isLoading}
 	<div class="p-8 text-center">
-		<span class="loading loading-spinner loading-lg"></span>
+		<span class="loading loading-lg loading-spinner"></span>
 		<p class="mt-4 text-base-content/70">{m.loading_document_content()}</p>
 	</div>
 {:else if error}
@@ -68,6 +69,6 @@
 {:else}
 	<!-- Markdown content display with basic styling -->
 	<div class="prose max-w-none">
-		{@html markdownContent}
+		{@html DOMPurify.sanitize(markdownContent)}
 	</div>
 {/if}
