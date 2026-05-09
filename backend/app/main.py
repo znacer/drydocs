@@ -9,9 +9,12 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.auth import AuthMiddleware
+from app.config import settings
 from app.database import init_db
 from app.routes.documents import router as documents_router
 from app.routes.references import router as references_router
@@ -50,11 +53,14 @@ app = FastAPI(
 # CORS middleware for SvelteKit frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Authentication middleware
+app.add_middleware(AuthMiddleware)
 
 # Include routers
 app.include_router(documents_router)
@@ -64,13 +70,21 @@ app.include_router(search_router)
 
 # Global exception handler
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Global HTTP exception handler.
 
     Logs HTTP exceptions and returns consistent error responses.
     """
+    from fastapi.responses import JSONResponse
+
     logger.error(f"HTTP Error: {exc.status_code} - {exc.detail}")
-    return HTTPException(status_code=exc.status_code, detail=exc.detail)
+    error_type = None
+    if hasattr(exc, 'headers') and exc.headers:
+        error_type = exc.headers.get("error_type") if hasattr(exc.headers, 'get') else None
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "error_type": error_type},
+    )
 
 
 # Root endpoint
@@ -80,7 +94,7 @@ async def http_exception_handler(request, exc: HTTPException):
     description="Root endpoint returning API information.",
     tags=["General"],
 )
-async def root():
+async def root() -> dict[str, str]:
     """Root endpoint for the Document Manager API."""
     return {
         "name": "Document Manager API",
@@ -98,6 +112,6 @@ async def root():
     description="Health check endpoint for monitoring.",
     tags=["General"],
 )
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}

@@ -18,7 +18,7 @@ from app.models import (
 )
 
 if TYPE_CHECKING:
-    from uuid import UUID
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -207,8 +207,8 @@ async def extract_and_store_references(
         for ref_id in unique_matched_ids:
             try:
                 reference_data = ReferenceCreate(
-                    source_document_id=UUID(document_id),
-                    referenced_document_id=UUID(ref_id),
+                    source_document_id=document_id,
+                    referenced_document_id=ref_id,
                     reference_text=f"[Doc-{ref_id}]",
                     reference_type="inline",
                     version_number=version_number,
@@ -221,7 +221,7 @@ async def extract_and_store_references(
                 continue
 
         return ExtractReferencesResponse(
-            document_id=UUID(document_id),
+            document_id=document_id,
             version_number=version_number,
             extracted_references=all_references,
             found_references=created_references,

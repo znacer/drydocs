@@ -1,5 +1,6 @@
 """MinIO storage client and helpers."""
 
+import asyncio
 import logging
 from datetime import timedelta
 from io import BytesIO
@@ -19,6 +20,7 @@ class MinIOClient:
 
     Provides a high-level interface for file operations with MinIO object storage.
     Handles connection management, bucket operations, and file CRUD operations.
+    Uses asyncio.to_thread() to avoid blocking the event loop.
     """
 
     def __init__(self) -> None:
@@ -31,16 +33,20 @@ class MinIOClient:
         )
         self.bucket = settings.minio_bucket
 
-    def ensure_bucket(self) -> None:
+    async def ensure_bucket(self) -> None:
         """Ensure the bucket exists.
 
         Creates the bucket if it doesn't already exist.
         """
+        await asyncio.to_thread(self._ensure_bucket_sync)
+
+    def _ensure_bucket_sync(self) -> None:
+        """Synchronous implementation of ensure_bucket."""
         if not self.client.bucket_exists(self.bucket):
             self.client.make_bucket(self.bucket)
             logger.info(f"Created bucket: {self.bucket}")
 
-    def upload_file(self, bucket: str, object_name: str, file_data: bytes) -> ObjectWriteResult:
+    async def upload_file(self, bucket: str, object_name: str, file_data: bytes) -> ObjectWriteResult:
         """Upload a file to MinIO.
 
         Args:
@@ -54,6 +60,10 @@ class MinIOClient:
         Raises:
             StorageUploadError: If the upload fails
         """
+        return await asyncio.to_thread(self._upload_file_sync, bucket, object_name, file_data)
+
+    def _upload_file_sync(self, bucket: str, object_name: str, file_data: bytes) -> ObjectWriteResult:
+        """Synchronous implementation of upload_file."""
         try:
             # MinIO put_object expects a file-like object (BinaryIO)
             data_stream = BytesIO(file_data)
@@ -69,7 +79,7 @@ class MinIOClient:
             logger.error(f"MinIO upload error for {object_name}: {e}")
             raise StorageUploadError(object_name, str(e))
 
-    def download_file(self, bucket: str, object_name: str) -> bytes:
+    async def download_file(self, bucket: str, object_name: str) -> bytes:
         """Download a file from MinIO.
 
         Args:
@@ -82,6 +92,10 @@ class MinIOClient:
         Raises:
             StorageDownloadError: If the download fails
         """
+        return await asyncio.to_thread(self._download_file_sync, bucket, object_name)
+
+    def _download_file_sync(self, bucket: str, object_name: str) -> bytes:
+        """Synchronous implementation of download_file."""
         try:
             data = self.client.get_object(bucket_name=bucket, object_name=object_name)
             content = data.read()
@@ -93,7 +107,7 @@ class MinIOClient:
             logger.error(f"MinIO download error for {object_name}: {e}")
             raise StorageDownloadError(object_name, str(e))
 
-    def file_exists(self, bucket: str, object_name: str) -> bool:
+    async def file_exists(self, bucket: str, object_name: str) -> bool:
         """Check if a file exists in MinIO.
 
         Args:
@@ -103,13 +117,17 @@ class MinIOClient:
         Returns:
             True if file exists, False otherwise
         """
+        return await asyncio.to_thread(self._file_exists_sync, bucket, object_name)
+
+    def _file_exists_sync(self, bucket: str, object_name: str) -> bool:
+        """Synchronous implementation of file_exists."""
         try:
             self.client.stat_object(bucket_name=bucket, object_name=object_name)
             return True
         except S3Error:
             return False
 
-    def delete_file(self, bucket: str, object_name: str) -> bool:
+    async def delete_file(self, bucket: str, object_name: str) -> bool:
         """Delete a file from MinIO.
 
         Args:
@@ -122,8 +140,12 @@ class MinIOClient:
         Raises:
             StorageDeleteError: If deletion fails for other reasons
         """
+        return await asyncio.to_thread(self._delete_file_sync, bucket, object_name)
+
+    def _delete_file_sync(self, bucket: str, object_name: str) -> bool:
+        """Synchronous implementation of delete_file."""
         try:
-            if self.file_exists(bucket, object_name):
+            if self._file_exists_sync(bucket, object_name):
                 self.client.remove_object(bucket_name=bucket, object_name=object_name)
                 logger.debug(f"Deleted {object_name} from bucket {bucket}")
                 return True
@@ -132,7 +154,7 @@ class MinIOClient:
             logger.error(f"MinIO delete error for {object_name}: {e}")
             raise StorageDeleteError(object_name, str(e))
 
-    def delete_files_by_prefix(self, bucket: str, prefix: str) -> int:
+    async def delete_files_by_prefix(self, bucket: str, prefix: str) -> int:
         """Delete all files with a given prefix from MinIO.
 
         Useful for cleaning up all files associated with a document.
@@ -147,6 +169,10 @@ class MinIOClient:
         Raises:
             StorageDeleteError: If deletion fails
         """
+        return await asyncio.to_thread(self._delete_files_by_prefix_sync, bucket, prefix)
+
+    def _delete_files_by_prefix_sync(self, bucket: str, prefix: str) -> int:
+        """Synchronous implementation of delete_files_by_prefix."""
         try:
             objects = self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
             deleted_count = 0
@@ -161,7 +187,7 @@ class MinIOClient:
             logger.error(f"MinIO batch delete error for prefix {prefix}: {e}")
             raise StorageDeleteError(prefix, str(e))
 
-    def list_files(self, bucket: str, prefix: str | None = None) -> list:
+    async def list_files(self, bucket: str, prefix: str | None = None) -> list[str]:
         """List all files in a bucket with optional prefix filter.
 
         Args:
@@ -171,18 +197,22 @@ class MinIOClient:
         Returns:
             List of object names
         """
+        return await asyncio.to_thread(self._list_files_sync, bucket, prefix)
+
+    def _list_files_sync(self, bucket: str, prefix: str | None = None) -> list[str]:
+        """Synchronous implementation of list_files."""
         try:
             objects = self.client.list_objects(
                 bucket_name=bucket,
                 prefix=prefix or "",
                 recursive=True,
             )
-            return [obj.object_name for obj in objects]
+            return [obj.object_name for obj in objects if obj.object_name is not None]
         except S3Error as e:
             logger.error(f"MinIO list error: {e}")
             return []
 
-    def get_presigned_url(self, bucket: str, object_name: str, expiry: int = 3600) -> str:
+    async def get_presigned_url(self, bucket: str, object_name: str, expiry: int = 3600) -> str:
         """
         Get a presigned URL for temporary access to a file.
 
@@ -194,6 +224,10 @@ class MinIOClient:
         Returns:
             Presigned URL string
         """
+        return await asyncio.to_thread(self._get_presigned_url_sync, bucket, object_name, expiry)
+
+    def _get_presigned_url_sync(self, bucket: str, object_name: str, expiry: int = 3600) -> str:
+        """Synchronous implementation of get_presigned_url."""
         try:
             url = self.client.presigned_get_object(
                 bucket_name=bucket,
@@ -219,34 +253,34 @@ def get_client() -> MinIOClient:
 # Async wrappers for use with async/await
 async def upload_file(bucket: str, object_name: str, file_data: bytes) -> ObjectWriteResult:
     """Async wrapper for upload_file."""
-    return minio_client.upload_file(bucket, object_name, file_data)
+    return await minio_client.upload_file(bucket, object_name, file_data)
 
 
 async def download_file(bucket: str, object_name: str) -> bytes:
     """Async wrapper for download_file."""
-    return minio_client.download_file(bucket, object_name)
+    return await minio_client.download_file(bucket, object_name)
 
 
 async def file_exists(bucket: str, object_name: str) -> bool:
     """Async wrapper for file_exists."""
-    return minio_client.file_exists(bucket, object_name)
+    return await minio_client.file_exists(bucket, object_name)
 
 
 async def delete_file(bucket: str, object_name: str) -> bool:
     """Async wrapper for delete_file."""
-    return minio_client.delete_file(bucket, object_name)
+    return await minio_client.delete_file(bucket, object_name)
 
 
 async def delete_files_by_prefix(bucket: str, prefix: str) -> int:
     """Async wrapper for delete_files_by_prefix."""
-    return minio_client.delete_files_by_prefix(bucket, prefix)
+    return await minio_client.delete_files_by_prefix(bucket, prefix)
 
 
 async def list_files(bucket: str, prefix: str | None = None) -> list[str]:
     """Async wrapper for list_files."""
-    return minio_client.list_files(bucket, prefix)
+    return await minio_client.list_files(bucket, prefix)
 
 
 async def ensure_bucket() -> None:
     """Async wrapper for ensure_bucket."""
-    minio_client.ensure_bucket()
+    await minio_client.ensure_bucket()

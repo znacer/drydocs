@@ -51,7 +51,7 @@ class Document(Base):
     referencing_documents: Mapped[list["DocumentReference"]] = relationship(
         "DocumentReference",
         back_populates="referenced_document",
-        foreign_keys="DocumentReference.referenced_document_id",
+        foreign_keys="[DocumentReference.referenced_document_id]",
         cascade="all, delete-orphan",
     )
 
@@ -59,7 +59,7 @@ class Document(Base):
     referenced_documents: Mapped[list["DocumentReference"]] = relationship(
         "DocumentReference",
         back_populates="source_document",
-        foreign_keys="DocumentReference.source_document_id",
+        foreign_keys="[DocumentReference.source_document_id]",
         cascade="all, delete-orphan",
     )
 
@@ -124,10 +124,23 @@ class DocumentReference(Base):
     )
 
 
-# Async engine and session factory
+# Async engine and session factory with connection pooling
 
-engine = create_async_engine(settings.postgres_url, echo=False)
-AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+engine = create_async_engine(
+    settings.postgres_url,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_recycle=3600,
+)
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False,
+)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -147,7 +160,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
+        # Create all tables
         await conn.run_sync(Base.metadata.create_all)
+
         # Add search_vector column to existing documents table if it doesn't exist
         try:
             await conn.run_sync(
@@ -180,11 +195,5 @@ async def init_db() -> None:
             )
         except Exception as e:
             logger.warning(f"Could not add extracted_text column: {e}")
-
-        # Create document_references table
-        try:
-            await conn.run_sync(Base.metadata.create_all)
-        except Exception:
-            pass
 
         logger.info("Database tables created successfully")

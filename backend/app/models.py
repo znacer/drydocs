@@ -5,6 +5,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
+# Configuration for all models - serialize UUIDs as strings
+class ModelConfig:
+    """Base configuration for all models."""
+    from_attributes = True
+    json_encoders = {UUID: str}
+
+
 # --- Document Schemas ---
 
 
@@ -25,7 +33,7 @@ class DocumentCreate(DocumentBase):
 class DocumentResponse(BaseModel):
     """Response schema for document metadata."""
 
-    id: UUID
+    id: str  # Use string to avoid UUID serialization issues
     title: str
     author: str
     description: str | None
@@ -34,7 +42,7 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={UUID: str})
 
 
 # --- Version Schemas ---
@@ -60,8 +68,8 @@ class VersionCreate(VersionBase):
 class VersionResponse(BaseModel):
     """Response schema for version metadata."""
 
-    id: UUID
-    document_id: UUID
+    id: str
+    document_id: str
     version_number: int
     filename: str
     file_type: str
@@ -69,12 +77,12 @@ class VersionResponse(BaseModel):
     storage_path: str
     markdown_path: str | None
     is_valid: bool
-    validated_by: UUID | None
+    validated_by: str | None
     validation_notes: str | None
     validated_at: datetime | None
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={UUID: str})
 
 
 # --- Combined Schemas ---
@@ -100,7 +108,7 @@ class DocumentListResponse(BaseModel):
 class ValidationRequest(BaseModel):
     """Request schema for validating a version."""
 
-    user_id: UUID = Field(..., description="ID of the user validating the document")
+    user_id: str = Field(..., description="ID of the user validating the document")
     notes: str | None = Field(None, max_length=2000, description="Validation notes")
 
 
@@ -134,7 +142,7 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     """A single search result."""
 
-    id: UUID
+    id: str
     title: str
     author: str
     description: str | None
@@ -145,7 +153,7 @@ class SearchResult(BaseModel):
     score: float = Field(description="Search relevance score (rank)")
     highlight: str | None = Field(None, description="Highlighted text snippet")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={UUID: str})
 
 
 class SearchResponse(BaseModel):
@@ -162,8 +170,8 @@ class SearchResponse(BaseModel):
 class ReferenceCreate(BaseModel):
     """Schema for creating a document reference."""
 
-    source_document_id: UUID = Field(..., description="ID of the source document")
-    referenced_document_id: UUID = Field(..., description="ID of the referenced document")
+    source_document_id: str = Field(..., description="ID of the source document")
+    referenced_document_id: str = Field(..., description="ID of the referenced document")
     reference_text: str = Field(
         ..., max_length=500, description="The text that references another document"
     )
@@ -178,15 +186,15 @@ class ReferenceCreate(BaseModel):
 class ReferenceResponse(BaseModel):
     """Response schema for a document reference."""
 
-    id: UUID
-    source_document_id: UUID
-    referenced_document_id: UUID
+    id: str
+    source_document_id: str
+    referenced_document_id: str
     reference_text: str
     reference_type: str
     version_number: int
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_encoders={UUID: str})
 
 
 class DocumentWithReferences(BaseModel):
@@ -207,7 +215,7 @@ class ExtractReferencesRequest(BaseModel):
 class ExtractReferencesResponse(BaseModel):
     """Response with extracted references."""
 
-    document_id: UUID
+    document_id: str
     version_number: int
     extracted_references: list[str] = Field(
         default_factory=list, description="List of extracted reference strings"
@@ -230,6 +238,8 @@ class LinkedDocumentsResponse(BaseModel):
     referencing_documents: list[DocumentResponse] = Field(
         default_factory=list, description="Documents that reference this document"
     )
+
+    model_config = ConfigDict(json_encoders={UUID: str})
 
 
 class MessageResponse(BaseModel):

@@ -68,6 +68,10 @@ async def get_document_references_endpoint(
     try:
         result = await get_linked_documents(db, document_id)
         return result
+    except HTTPException:
+        raise
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -184,6 +188,8 @@ async def get_outgoing_references_endpoint(
 
         result = await get_references_by_source(db, document_id)
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching outgoing references: {e}")
         raise HTTPException(
@@ -221,6 +227,8 @@ async def get_incoming_references_endpoint(
 
         result = await get_references_by_target(db, document_id)
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching incoming references: {e}")
         raise HTTPException(

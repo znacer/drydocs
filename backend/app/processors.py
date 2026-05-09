@@ -1,5 +1,6 @@
 """Document processing: text extraction and Markdown conversion."""
 
+import asyncio
 import logging
 import os
 import re
@@ -8,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from docx import Document as DocxDocument
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +109,16 @@ def convert_to_markdown(input_path: str, output_path: str) -> None:
         RuntimeError: If pandoc conversion fails
     """
     try:
-        subprocess.run(
+        _result = subprocess.run(
             ["pandoc", input_path, "-o", output_path, "-t", "markdown"],
             check=True,
             capture_output=True,
+            text=True,
         )
         logger.debug(f"Converted {input_path} to Markdown at {output_path}")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Pandoc conversion error: {e.stderr.decode()}")
-        raise RuntimeError(f"Failed to convert document to Markdown: {e.stderr.decode()}")
+        logger.error(f"Pandoc conversion error: {e.stderr}")
+        raise RuntimeError(f"Failed to convert document to Markdown: {e.stderr}")
     except FileNotFoundError:
         logger.error("Pandoc not found. Please install pandoc on your system.")
         raise RuntimeError("Pandoc is not installed. Please install pandoc.")
@@ -139,6 +141,15 @@ async def process_document(file_data: bytes, filename: str) -> tuple[str, bytes]
     """
     file_ext = Path(filename).suffix.lower()
 
+    # Use asyncio.to_thread for the blocking file operations
+    extracted_text, markdown_content = await asyncio.to_thread(
+        _process_document_sync, file_data, filename, file_ext
+    )
+    return extracted_text, markdown_content
+
+
+def _process_document_sync(file_data: bytes, filename: str, file_ext: str) -> tuple[str, bytes]:
+    """Synchronous implementation of document processing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Save original file
         input_path = os.path.join(temp_dir, filename)

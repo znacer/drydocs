@@ -43,6 +43,60 @@ from app.storage import download_file, upload_file
 
 logger = logging.getLogger(__name__)
 
+# File validation constants
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx"}
+
+
+def validate_file_type(file: UploadFile) -> None:
+    """Validate file type by extension and MIME type.
+
+    Args:
+        file: UploadFile to validate
+
+    Raises:
+        HTTPException: If file type is not allowed
+    """
+    # Check file extension
+    if file.filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File filename is required",
+        )
+
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file extension: {file_ext}. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+        )
+
+
+def validate_file_size(file: UploadFile) -> None:
+    """Validate file size.
+
+    Args:
+        file: UploadFile to validate
+
+    Raises:
+        HTTPException: If file is too large
+    """
+    # Read file content to check size
+    content = file.file.read()
+    file.file.seek(0)  # Reset file pointer
+
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)} MB",
+        )
+
+
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
@@ -88,22 +142,23 @@ async def upload_document(
     3. Metadata saved to PostgreSQL
     """
     try:
-        # Validate file type
-        if file.filename is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File filename is required",
-            )
+        # Validate file type and extension
+        validate_file_type(file)
 
-        file_ext = os.path.splitext(file.filename)[1].lower()
-        if file_ext not in (".pdf", ".docx", ".doc"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file type: {file_ext}. Supported: PDF, DOCX, DOC",
-            )
+        # Validate file size
+        validate_file_size(file)
 
         # Read file content
         file_data = await file.read()
+
+        # Re-validate extension after reading (defensive)
+        filename = file.filename or ""
+        file_ext = os.path.splitext(filename)[1].lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported file type: {file_ext}",
+            )
 
         # Create document record
         doc_create = DocumentCreate(
@@ -116,11 +171,11 @@ async def upload_document(
 
         # Generate storage paths
         version_num = 1
-        raw_path = f"{doc_id}/v{version_num}/{file.filename}"
+        raw_path = f"{doc_id}/v{version_num}/{filename}"
         md_path = f"{doc_id}/v{version_num}/document.md"
 
         # Process document (extract text + convert to Markdown)
-        extracted_text, markdown_content = await process_document(file_data, file.filename)
+        extracted_text, markdown_content = await process_document(file_data, filename)
 
         # Upload raw file to MinIO
         await upload_file(
@@ -243,6 +298,8 @@ async def get_document_endpoint(
                 detail=f"Document {document_id} not found",
             )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching document: {e}")
         raise HTTPException(
@@ -274,6 +331,8 @@ async def delete_document_endpoint(
                 detail=f"Document {document_id} not found",
             )
         return MessageResponse(message=f"Document {document_id} deleted successfully")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
         raise HTTPException(
@@ -319,6 +378,8 @@ async def validate_document_endpoint(
         logger.info(f"Validated version {version_id} for document {document_id}")
         return result
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -377,6 +438,8 @@ async def download_markdown(
             headers={"Content-Disposition": f"attachment; filename=document_{document_id}.md"},
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Markdown download error: {e}")
         raise HTTPException(
@@ -431,6 +494,8 @@ async def download_document(
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Document download error: {e}")
         raise HTTPException(

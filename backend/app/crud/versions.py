@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 async def create_version(
     db: AsyncSession,
     document_id: str,
-    version_data: dict,
+    version_data: dict[str, Any],
 ) -> VersionResponse:
     """
     Create a new version for a document.

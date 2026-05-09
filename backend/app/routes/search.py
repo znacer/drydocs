@@ -61,6 +61,8 @@ async def search_documents_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Search error: {e}")
         raise HTTPException(
@@ -111,6 +113,8 @@ async def search_related_documents_endpoint(
         result.count = len(result.results)
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Related search error: {e}")
         raise HTTPException(
